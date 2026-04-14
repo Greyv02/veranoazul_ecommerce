@@ -140,6 +140,32 @@ function setupEventListeners() {
 // ==========================================
 // RENDERIZADO
 // ==========================================
+
+/**
+ * Convierte una cadena de stock (ej: "S=5|M=0") en un objeto usable.
+ */
+function parseStock(stockStr, sizesStr) {
+    const stockMap = {};
+    const sizes = sizesStr.split(',').map(s => s.trim());
+    
+    // Si el stock es un número simple (compatibilidad inicial o error de formato manual)
+    if (!stockStr.toString().includes('=')) {
+        const totalStock = parseInt(stockStr) || 0;
+        sizes.forEach(size => stockMap[size] = totalStock);
+        return stockMap;
+    }
+
+    // Formato nuevo: "S=5|M=0|L=2"
+    stockStr.split('|').forEach(part => {
+        const [size, qty] = part.split('=');
+        if (size && qty !== undefined) {
+            stockMap[size.trim()] = parseInt(qty);
+        }
+    });
+
+    return stockMap;
+}
+
 function renderProducts(products) {
     if (products.length === 0) {
         productsGrid.innerHTML = '<p class="loading-spinner">No hay productos en esta categoría.</p>';
@@ -153,34 +179,43 @@ function renderProducts(products) {
         const isOnSale = pOferta > 0 && pOferta < pVenta;
         const currentPrice = isOnSale ? pOferta : pVenta;
         
+        // Procesar stock por talla
+        const stockMap = parseStock(product.Stock, product.Tallas);
+        const totalStock = Object.values(stockMap).reduce((a, b) => a + b, 0);
+        
         // Generar tallas
         const tallasHTML = product.Tallas.split(',').map(talla => talla.trim()).map(talla => {
-            if (talla.toLowerCase() === 'unica' || talla.toLowerCase() === 'única' || talla === '') return '';
-            return `<button class="size-btn">${talla}</button>`;
+            const isUnica = talla.toLowerCase() === 'unica' || talla.toLowerCase() === 'única' || talla === '';
+            if (isUnica) return '';
+            
+            const qty = stockMap[talla] || 0;
+            const disabled = qty <= 0;
+            
+            return `<button class="size-btn ${disabled ? 'disabled' : ''}" ${disabled ? 'disabled' : ''}>${talla}</button>`;
         }).join('');
         
         const sizesSection = tallasHTML ? `
             <div class="sizes-container">
-                <span class="sizes-label">Selecciona Cuidadosamente:</span>
+                <span class="sizes-label">Selecciona Talla:</span>
                 <div class="sizes-list">
                     ${tallasHTML}
                 </div>
             </div>
         ` : '';
 
-        // Bloqueo si no hay stock
-        const isOutOfStock = parseInt(product.Stock) <= 0;
+        // Bloqueo si no hay stock total
+        const isOutOfStock = totalStock <= 0;
         const stockBadge = isOutOfStock ? '<span class="stock-badge" style="color:red">Agotado</span>' : '';
 
         return `
             <article class="product-card">
                 ${stockBadge}
-                ${isOnSale && !isOutOfStock ? '<span class="stock-badge" style="color:#fb923c">Oferta</span>' : ''}
+                ${isOnSale && !isOutOfStock ? '<span class="stock-badge" style="color:#E11D48">Oferta</span>' : ''}
                 <img src="${product.Imagen_URL}" alt="${product.Nombre}" class="product-image" loading="lazy">
                 <div class="product-info">
                     <h3 class="product-title">${product.Nombre}</h3>
                     <div class="product-price">
-                        ${isOnSale ? `<span style="text-decoration:line-through; font-size:0.85rem; color:#64748b">$${pVenta.toFixed(2)}</span> ` : ''}
+                        ${isOnSale ? `<span style="text-decoration:line-through; font-size:0.85rem; color:#64748B">$${pVenta.toFixed(2)}</span> ` : ''}
                         $${currentPrice.toFixed(2)}
                     </div>
                     ${sizesSection}
@@ -197,6 +232,15 @@ function renderProducts(products) {
 // LÓGICA DEL CARRITO
 // ==========================================
 function addToCart(product, size) {
+    // Validar stock antes de añadir
+    const stockMap = parseStock(product.Stock, product.Tallas);
+    const available = stockMap[size] || 0;
+    
+    if (available <= 0 && size !== 'Única') {
+        alert('Lo sentimos, esa talla se acaba de agotar.');
+        return;
+    }
+
     // Determinar precio final
     const pOferta = parseFloat(product.Precio_Oferta);
     const pVenta = parseFloat(product.Precio_Venta);

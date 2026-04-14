@@ -1,3 +1,3 @@
 Codigo,Nombre,Categoria,Precio_Costo,Precio_Venta,Precio_Oferta,Stock,Imagen_URL,Tallas
-VA001,Leggins Deportivos Seamless,Deportivo Mujer,8.00,15.00,12.00,10,https://i.ibb.co/ejemplo1.jpg,"S,M,L"
-VA002,Short Running Elite,Deportivo Hombre,5.00,10.00,,5,https://i.ibb.co/ejemplo2.jpg,"M,L,XL"
+VA001,Leggins Deportivos,Ropa,8.00,15.00,12.00,S=10|M=5|L=0,https://i.ibb.co/ejemplo1.jpg,"S, M, L"
+VA002,Short Running,Ropa,5.00,10.00,,UNICA=15,https://i.ibb.co/ejemplo2.jpg,UNICA

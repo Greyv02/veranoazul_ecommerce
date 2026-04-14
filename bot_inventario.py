@@ -6,7 +6,7 @@ import re
 # ==========================================
 # CONFIGURACIÓN (REEMPLAZA CON TUS DATOS)
 # ==========================================
-TELEGRAM_BOT_TOKEN = "TU_TOKEN_DE_TELEGRAM_AQUI"
+TELEGRAM_BOT_TOKEN = "8662527192:AAG2nID-y7jySgZ7ntEtmpqIj_VTUrh4KkY"
 IMGBB_API_KEY = "TU_IMGBB_API_KEY_AQUI"
 DOCUMENTO_GOOGLE = "Verano Azul Inventario" # Nombre exacto de tu archivo en Google Sheets
 PESTANA_GOOGLE = "Inventario"               # Nombre de la pestaña inferior
@@ -51,6 +51,22 @@ def subir_imagen_imgbb(file_url):
         print("Excepción subiendo imagen:", e)
         return None
 
+def parse_stock_string(stock_str):
+    """Convierte 'S=10|M=5' en {'S': 10, 'M': 5}"""
+    if not stock_str or '=' not in stock_str:
+        return {}
+    parts = stock_str.split('|')
+    result = {}
+    for p in parts:
+        if '=' in p:
+            k, v = p.split('=')
+            result[k.strip().upper()] = int(v)
+    return result
+
+def format_stock_dict(stock_dict):
+    """Convierte {'S': 10} en 'S=10'"""
+    return "|".join([f"{k}={v}" for k, v in stock_dict.items()])
+
 def generar_nuevo_codigo():
     """Genera el código de formato VA00X leyendo cuántas filas hay."""
     filas = sheet.get_all_values()
@@ -68,30 +84,40 @@ def generar_nuevo_codigo():
 @bot.message_handler(content_types=['photo'])
 def recibir_nuevo_articulo(message):
     """
-    Se activa cuando se envía una foto. 
     Se espera que en el texto (caption) vaya esto separado por comas:
-    Nombre, Precio_Costo, Precio_Venta, Precio_Oferta, Categoría, Tallas, Stock
-    Si no hay oferta, se puede dejar vacío ej: Leggins, 5, 10, , Deportivo Mujer, S M L, 10
+    Nombre, Precio_Costo, Precio_Venta, Precio_Oferta, Categoría, Tallas, StockPorTalla
     """
     caption = message.caption
     if not caption:
         bot.reply_to(message, "⚠️ Foto recibida sin descripción. Por favor envía la foto con el formato requerido:\n"
                               "Nombre, Costo, Venta, Oferta, Categoría, Tallas, Stock\n"
-                              "(Si no hay Oferta, deja el espacio vacío, ej: Venta, , Categoría)")
+                              "(Ej: Leggins, 5, 12, , Ropa, S M L, 10 5 0)")
         return
 
     # Parsear los datos del caption
     parts = [p.strip() for p in caption.split(',')]
     if len(parts) != 7:
         bot.reply_to(message, f"⚠️ Formato incorrecto. Encontré {len(parts)} campos y necesito 7.\n"
-                              "Ejemplo: Short Deportivo, 5, 12, , Deportivo Mujer, S M L, 10")
+                              "Ejemplo: Short Deportivo, 5, 12, , Ropa, S M L, 10 5 8")
         return
 
-    nombre, costo, venta, oferta, categoria, tallas, stock = parts
+    nombre, costo, venta, oferta, categoria, tallas_str, stock_input = parts
     
+    # Procesar tallas y stock
+    list_tallas = [t.strip().upper() for t in tallas_str.replace(',', ' ').split()]
+    list_stock = stock_input.split()
+
+    if len(list_tallas) != len(list_stock):
+        bot.reply_to(message, f"⚠️ Error: Pusiste {len(list_tallas)} tallas pero {len(list_stock)} cantidades de stock. Deben coincidir.")
+        return
+
+    # Crear string de stock: S=10|M=5
+    stock_map = {list_tallas[i]: list_stock[i] for i in range(len(list_tallas))}
+    stock_final_str = "|".join([f"{k}={v}" for k, v in stock_map.items()])
+
     bot.reply_to(message, "⏳ Procesando y subiendo imagen a la nube...")
 
-    # Obtener la foto en mejor calidad (la última del array)
+    # Obtener la foto en mejor calidad
     photo = message.photo[-1]
     file_info = bot.get_file(photo.file_id)
     file_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_info.file_path}"
@@ -105,17 +131,17 @@ def recibir_nuevo_articulo(message):
     # Generar código
     codigo = generar_nuevo_codigo()
 
-    # Columnas esperadas: Codigo, Nombre, Categoria, Precio_Costo, Precio_Venta, Precio_Oferta, Stock, Imagen_URL, Tallas
     row_data = [
-        codigo, nombre, categoria, costo, venta, oferta, stock, img_public_url, tallas
+        codigo, nombre, categoria, costo, venta, oferta, stock_final_str, img_public_url, tallas_str
     ]
 
     try:
         sheet.append_row(row_data)
+        resumen_stock = "\n".join([f"   • {k}: {v}" for k, v in stock_map.items()])
         bot.reply_to(message, f"✅ *Artículo Agregado Exitosamente*\n\n"
                               f"▪️ *Código:* {codigo}\n"
                               f"▪️ *Producto:* {nombre}\n"
-                              f"▪️ *Stock inicial:* {stock}\n"
+                              f"▪️ *Stock Detalle:*\n{resumen_stock}\n"
                               f"[Ver Imagen]({img_public_url})", parse_mode='Markdown')
     except Exception as e:
         bot.reply_to(message, f"❌ Error guardando en Google Sheets: {e}")
@@ -126,50 +152,73 @@ def recibir_nuevo_articulo(message):
 @bot.message_handler(commands=['vendido', 'venta'])
 def registrar_venta(message):
     """
-    Comando: /vendido VA001 2
-    Resta 2 del stock del producto VA001
+    Comando: /vendido VA001 M 1
     """
     try:
-        # Extraer parámetros (ignorar el comando en sí)
         args = message.text.split()[1:]
-        if len(args) == 0:
-            bot.reply_to(message, "⚠️ Usa el formato: /vendido [CÓDIGO] [CANTIDAD]\nEjemplo: /vendido VA001 1")
+        if len(args) < 1:
+            bot.reply_to(message, "⚠️ Usa el formato: /vendido [CÓDIGO] [TALLA] [CANTIDAD]\nEjemplo: /vendido VA001 M 1")
             return
             
         codigo = args[0].upper()
-        cantidad_vendida = 1
-        if len(args) > 1:
-            cantidad_vendida = int(args[1])
-
+        
         # Buscar la fila del código
         bot.reply_to(message, f"🔍 Buscando producto {codigo}...")
-        
-        # En gspread, encontramos la celda
         cell = sheet.find(codigo)
-        
-        # La columna del stock es la número 7
         fila = cell.row
+        
+        # Obtener stock actual y tallas de la fila
         stock_actual_str = sheet.cell(fila, 7).value
-        stock_actual = int(stock_actual_str) if stock_actual_str else 0
+        tallas_disponibles = sheet.cell(fila, 9).value.upper()
         
-        nuevo_stock = stock_actual - cantidad_vendida
+        stock_map = parse_stock_string(stock_actual_str)
         
-        if nuevo_stock < 0:
-             bot.reply_to(message, f"⚠️ ¡Cuidado! El stock actual es de {stock_actual}. No puedes vender {cantidad_vendida}. No se realizaron cambios.")
+        # Si el producto tiene varias tallas, necesitamos saber cuál se vendió
+        if len(stock_map) > 1:
+            if len(args) < 2:
+                bot.reply_to(message, f"⚠️ Este producto tiene varias tallas ({tallas_disponibles}). Por favor indica cuál vendiste.\nEj: `/vendido {codigo} M 1`", parse_mode='Markdown')
+                return
+            
+            talla_vendida = args[1].upper()
+            cantidad_vendida = int(args[2]) if len(args) > 2 else 1
+            
+            if talla_vendida not in stock_map:
+                bot.reply_to(message, f"❌ La talla '{talla_vendida}' no existe para este producto. Opciones: {tallas_disponibles}")
+                return
+        else:
+            # Talla única o solo una talla registrada
+            talla_vendida = list(stock_map.keys())[0] if stock_map else "ÚNICA"
+            # Si el usuario puso /vendido VA001 2 (sin talla pero con cantidad)
+            if len(args) > 1 and args[1].isdigit():
+                cantidad_vendida = int(args[1])
+            else:
+                # Si el usuario puso /vendido VA001 TALLA 2
+                cantidad_vendida = int(args[2]) if len(args) > 2 else 1
+
+        # Actualizar stock
+        stock_actual_talla = stock_map.get(talla_vendida, 0)
+        nuevo_stock_talla = stock_actual_talla - cantidad_vendida
+        
+        if nuevo_stock_talla < 0:
+             bot.reply_to(message, f"⚠️ ¡Cuidado! Solo quedan {stock_actual_talla} de la talla {talla_vendida}. No se realizaron cambios.")
              return
 
+        stock_map[talla_vendida] = nuevo_stock_talla
+        nuevo_stock_str = format_stock_dict(stock_map)
+
         # Actualizar celda
-        sheet.update_cell(fila, 7, str(nuevo_stock))
+        sheet.update_cell(fila, 7, nuevo_stock_str)
         
+        resumen = "\n".join([f"   • {k}: {v}" for k, v in stock_map.items()])
         bot.reply_to(message, f"✅ *Venta Registrada*\n\n"
                               f"▪️ Código: {codigo}\n"
-                              f"▪️ Descontado: -{cantidad_vendida}\n"
-                              f"▪️ *Stock Actualizado:* {nuevo_stock}", parse_mode='Markdown')
+                              f"▪️ Talla: {talla_vendida} (-{cantidad_vendida})\n"
+                              f"▪️ *Stock Actualizado:*\n{resumen}", parse_mode='Markdown')
 
     except gspread.exceptions.CellNotFound:
         bot.reply_to(message, "❌ Código no encontrado en el inventario.")
     except Exception as e:
-        bot.reply_to(message, f"❌ Ocurrió un error procesando la venta: {e}")
+        bot.reply_to(message, f"❌ Error: {e}")
 
 # ==========================================
 # INICIO DEL BOT
@@ -179,11 +228,12 @@ def send_welcome(message):
     bienvenida = (
         "🤖 *Panel de Control - Verano Azul*\n\n"
         "Para agregar un producto:\n"
-        "Envía una foto con ESTE formato en el texto:\n"
-        "`Nombre, Costo, Venta, Oferta, Categoría, Tallas, Stock`\n\n"
+        "Envía una foto con descripción:\n"
+        "`Nombre, Costo, Venta, Oferta, Categoría, Tallas, StockPorTalla`.\n"
+        "Ejemplo: `Leggins, 10, 20, , Ropa, S M L, 5 10 2`\n\n"
         "Para registrar una venta:\n"
-        "Usa el comando /vendido CÓDIGO CANTIDAD\n"
-        "(Ejemplo: `/vendido VA002 1`)"
+        "Usa `/vendido CODIGO TALLA CANTIDAD`.\n"
+        "Ejemplo: `/vendido VA001 M 1`"
     )
     bot.reply_to(message, bienvenida, parse_mode='Markdown')
 
