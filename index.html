@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verano Azul - E-commerce</title>
+    <!-- Seo Tags -->
+    <meta name="description" content="Verano Azul. Tienda deportiva.">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">
+                <i class="fa-solid fa-water"></i> <!-- A placeholder blue summer logo icon -->
+                <h1>Verano Azul</h1>
+            </div>
+            <div class="header-actions">
+                <button id="cart-btn" class="icon-btn">
+                    <i class="fa-solid fa-bag-shopping"></i>
+                    <span id="cart-count">0</span>
+                </button>
+            </div>
+        </div>
+        <!-- Navigation -->
+        <nav class="categories-nav">
+            <ul id="categories-list">
+                <li class="active" data-category="Todos">Todos</li>
+                <li data-category="Deportivo Mujer">Deportivo Mujer</li>
+                <li data-category="Deportivo Hombre">Deportivo Hombre</li>
+                <li data-category="Accesorios Deportivos">Accesorios Deportivos</li>
+                <li data-category="Relojes">Relojes</li>
+                <li data-category="Lentes">Lentes</li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="loading-spinner" id="loading-spinner">
+            <div class="spinner"></div>
+            <p>Cargando catálogo...</p>
+        </div>
+        
+        <div class="products-grid" id="products-grid">
+            <!-- Dynamic products will be injected here -->
+        </div>
+    </main>
+
+    <!-- Cart Sidebar / Modal -->
+    <div class="cart-overlay" id="cart-overlay"></div>
+    <div class="cart-sidebar" id="cart-sidebar">
+        <div class="cart-header">
+            <h2>Tu Bolsa</h2>
+            <button id="close-cart-btn" class="icon-btn close-btn">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="cart-items" id="cart-items">
+            <!-- Dynamic cart items will be injected here -->
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Total</span>
+                <span id="cart-total-price">$0.00</span>
+            </div>
+            <button id="checkout-btn" class="checkout-btn">
+                <i class="fa-brands fa-whatsapp"></i> Finalizar Compra
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
