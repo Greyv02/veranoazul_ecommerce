@@ -1,7 +1,7 @@
 // ==========================================
 // CONFIGURACIÓN PRINCIPAL
 // ==========================================
-const SCRIPT_URL = 'URL_DE_TU_WEB_APP_AQUI'; // Se reemplazará con el endpoint del script JSON
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby97ctuvlDah8xC-cmN7jAhrHZu1dqWCweSAL2KDrhX9QiWfcFW-d9d2r_4xlHUiNjnJg/exec';
 const WHATSAPP_NUMBER = '584120000000'; // Formato internacional sin + (Ej. Venezuela 584..., Colombia 573...)
 
 // ==========================================
