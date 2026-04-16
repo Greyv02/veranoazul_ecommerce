@@ -487,7 +487,8 @@ function updateCartUI() {
             ✨ Escoge tus favoritos y finaliza por WhatsApp.
         </div>
     ` + cart.map(item => {
-        const itemTotal = item.Precio * item.Cantidad;
+        const unitPrice = parseFloat(item.Precio) || 0;
+        const itemTotal = unitPrice * item.Cantidad;
         total += itemTotal;
         count += item.Cantidad;
 
@@ -495,14 +496,19 @@ function updateCartUI() {
             <div class="cart-item" data-code="${item.Codigo}" data-size="${item.Talla}">
                 <img src="${item.Imagen}" alt="${item.Nombre}" class="cart-item-img">
                 <div class="cart-item-info">
-                    <h4 class="cart-item-title">${item.Nombre}</h4>
-                    <span class="cart-item-meta">Código: ${item.Codigo} ${item.Talla !== 'Única' ? '| Talla: ' + item.Talla : ''}</span>
-                    <span class="cart-item-price">$${item.Precio.toFixed(2)}</span>
+                    <div class="cart-item-header">
+                        <h4 class="cart-item-title">${item.Nombre}</h4>
+                        <span class="cart-item-total-price">$${itemTotal.toFixed(2)}</span>
+                    </div>
+                    <div class="cart-item-details">
+                        <span class="cart-item-meta">${item.Codigo} ${item.Talla !== 'Única' ? '| Talla: ' + item.Talla : ''}</span>
+                        <span class="cart-item-subtitle">${item.Cantidad} x $${unitPrice.toFixed(2)}</span>
+                    </div>
                     <div class="cart-item-actions">
                         <div class="qty-controls">
-                            <button class="qty-btn">-</button>
+                            <button class="qty-btn" aria-label="Disminuir">-</button>
                             <span class="qty-val">${item.Cantidad}</span>
-                            <button class="qty-btn">+</button>
+                            <button class="qty-btn" aria-label="Aumentar">+</button>
                         </div>
                         <button class="remove-btn">Eliminar</button>
                     </div>

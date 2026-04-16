@@ -4,6 +4,7 @@ import requests
 import re
 import os
 import shutil
+import subprocess
 
 # ==========================================
 # CONFIGURACIÓN (REEMPLAZA CON TUS DATOS)
@@ -33,27 +34,68 @@ except Exception as e:
     print("Detalle:", e)
 
 
-def subir_imagen_imgbb(file_url):
-    """Descarga la imagen de Telegram y la sube a ImgBB, retornando la URL pública."""
+import subprocess
+
+def optimizar_imagen_powershell(imagen_bytes, codigo):
+    """Usa PowerShell para redimensionar la imagen sin depender de Pillow."""
+    temp_input = f"temp_{codigo}_in.jpg"
+    temp_output = f"temp_{codigo}_out.jpg"
+    
     try:
-        # Descarga la imagen en memoria
-        response = requests.get(file_url)
+        # Guardar temporalmente los bytes
+        with open(temp_input, 'wb') as f:
+            f.write(imagen_bytes)
         
-        # Subir a ImgBB
+        # Ejecutar comando PowerShell para redimensionar (Max 800px)
+        # Usamos System.Drawing que es nativo de Windows
+        ps_cmd = (
+            f"Add-Type -AssemblyName System.Drawing; "
+            f"$img = [System.Drawing.Image]::FromFile('{os.path.abspath(temp_input)}'); "
+            f"$ratio = 800 / $img.Width; if ($ratio -gt 1) {{ $ratio = 1 }}; "
+            f"$newW = [int]($img.Width * $ratio); $newH = [int]($img.Height * $ratio); "
+            f"$bmp = New-Object System.Drawing.Bitmap($newW, $newH); "
+            f"$g = [System.Drawing.Graphics]::FromImage($bmp); "
+            f"$g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic; "
+            f"$g.DrawImage($img, 0, 0, $newW, $newH); "
+            f"$bmp.Save('{os.path.abspath(temp_output)}', [System.Drawing.Imaging.ImageFormat]::Jpeg); "
+            f"$g.Dispose(); $bmp.Dispose(); $img.Dispose();"
+        )
+        
+        subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True)
+        
+        if os.path.exists(temp_output):
+            with open(temp_output, 'rb') as f:
+                res = f.read()
+            # Limpieza
+            os.remove(temp_input)
+            os.remove(temp_output)
+            return res
+            
+    except Exception as e:
+        print(f"Error en post-procesado PS: {e}")
+    
+    if os.path.exists(temp_input): os.remove(temp_input)
+    return imagen_bytes
+
+def subir_imagen_imgbb(file_url, codigo="articulo"):
+    """Descarga, optimiza vía PS y sube a ImgBB."""
+    try:
+        response = requests.get(file_url)
+        if response.status_code != 200: return None
+
+        # OPTIMIZACIÓN VÍA POWERSHELL (Omitimos Pillow por bloqueo de sistema)
+        img_optimizada = optimizar_imagen_powershell(response.content, codigo)
+        
         url = f"https://api.imgbb.com/1/upload?key={IMGBB_API_KEY}"
-        files = {
-            'image': ('image.jpg', response.content, 'image/jpeg')
-        }
+        files = {'image': ('image.jpg', img_optimizada, 'image/jpeg')}
         res = requests.post(url, files=files)
         data = res.json()
         
         if data.get('success'):
             return data['data']['url']
-        else:
-            print("Error subiendo a ImgBB:", data)
-            return None
+        return None
     except Exception as e:
-        print("Excepción subiendo imagen:", e)
+        print("Excepción subiendo:", e)
         return None
 
 def parse_stock_string(stock_str):
