@@ -45,13 +45,27 @@
 
     <!-- Main Content -->
     <main>
-        <div class="loading-spinner" id="loading-spinner">
+        <!-- VISTA DE CATEGORÍAS (CARPETAS) -->
+        <section id="categories-view" class="categories-grid">
+            <!-- Se llena con JS -->
+        </section>
+
+        <div id="loading-spinner" class="loading-spinner">
             <div class="spinner"></div>
-            <p>Cargando catálogo...</p>
+            <p>Conectando con Verano Azul...</p>
         </div>
         
-        <div class="products-grid" id="products-grid">
-            <!-- Dynamic products will be injected here -->
+        <!-- VISTA DE PRODUCTOS (OCULTA INICIALMENTE) -->
+        <div id="products-view" style="display: none;">
+            <div class="view-header">
+                <button id="back-to-categories" class="back-btn">
+                    <i class="fa-solid fa-chevron-left"></i> Categorías
+                </button>
+                <h2 id="current-category-name">Categoría</h2>
+            </div>
+            <div class="products-grid" id="products-grid">
+                <!-- Dynamic products will be injected here -->
+            </div>
         </div>
     </main>
 

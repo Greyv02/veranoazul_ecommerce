@@ -2,7 +2,7 @@
 // CONFIGURACIÓN PRINCIPAL
 // ==========================================
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby97ctuvlDah8xC-cmN7jAhrHZu1dqWCweSAL2KDrhX9QiWfcFW-d9d2r_4xlHUiNjnJg/exec';
-const WHATSAPP_NUMBER = '584120000000'; // Formato internacional sin + (Ej. Venezuela 584..., Colombia 573...)
+const WHATSAPP_NUMBER = '584129994320';
 
 // ==========================================
 // ESTADO GLOBAL
@@ -13,15 +13,10 @@ let cart = JSON.parse(localStorage.getItem('veranoazul_cart')) || [];
 // ==========================================
 // ELEMENTOS DEL DOM
 // ==========================================
-const productsGrid = document.getElementById('products-grid');
-const loadingSpinner = document.getElementById('loading-spinner');
-const categoriesList = document.getElementById('categories-list');
-
-// Carrito DOM
-const cartBtn = document.getElementById('cart-btn');
-const closeCartBtn = document.getElementById('close-cart-btn');
-const cartOverlay = document.getElementById('cart-overlay');
-const cartSidebar = document.getElementById('cart-sidebar');
+const categoriesView = document.getElementById('categories-view');
+const productsView = document.getElementById('products-view');
+const backToCatsBtn = document.getElementById('back-to-categories');
+const currentCatNameEl = document.getElementById('current-category-name');
 const cartItemsContainer = document.getElementById('cart-items');
 const cartTotalEl = document.getElementById('cart-total-price');
 const cartCountEl = document.getElementById('cart-count');
@@ -41,43 +36,39 @@ async function initApp() {
         if (SCRIPT_URL && SCRIPT_URL !== 'URL_DE_TU_WEB_APP_AQUI') {
             const response = await fetch(SCRIPT_URL);
             allProducts = await response.json();
-            console.log("Productos cargados:", allProducts);
         } else {
-            // DATA DE PRUEBAS / MOCKUP MIENTRAS SE CONECTA LA API
             allProducts = [
                 { Codigo: 'VA001', Nombre: 'Leggins Deportivos Seamless', Categoria: 'Deportivo Mujer', Precio_Venta: 15.00, Precio_Oferta: 12.00, Tallas: 'S,M,L', Stock: 'S=5|M=0|L=2', Imagen_URL: 'https://i.ibb.co/3k5Xy9n/placeholder-mujer1.jpg' },
                 { Codigo: 'VA101', Nombre: 'Short Running Elite', Categoria: 'Deportivo Hombre', Precio_Venta: 10.00, Precio_Oferta: '', Tallas: 'M,L,XL', Stock: 'M=5|L=0', Imagen_URL: 'https://i.ibb.co/fCXq9x7/placeholder-hombre1.jpg' }
             ];
         }
 
-        loadingSpinner.style.display = 'none';
-        renderProducts(allProducts);
+        document.getElementById('loading-spinner').style.display = 'none';
+        renderCategories();
     } catch (error) {
         console.error('Error cargando los productos:', error);
-        loadingSpinner.innerHTML = '<p style="color: #ef4444;">Error de conexión. Intenta de nuevo más tarde.</p>';
+        document.getElementById('loading-spinner').innerHTML = '<p style="color: #ef4444;">Error de conexión. Intenta de nuevo más tarde.</p>';
     }
 }
 
 function setupEventListeners() {
-    // Filtrado por Categorías
-    categoriesList.addEventListener('click', (e) => {
-        if (e.target.tagName === 'LI') {
-            document.querySelectorAll('#categories-list li').forEach(li => li.classList.remove('active'));
-            e.target.classList.add('active');
-            
-            const category = e.target.getAttribute('data-category');
-            if (category === 'Todos') {
-                renderProducts(allProducts);
-            } else {
-                // Filtro flexible para ignorar mayúsculas/minúsculas
-                const filtered = allProducts.filter(p => p.Categoria.toLowerCase() === category.toLowerCase());
-                renderProducts(filtered);
-            }
+    // Navegación de categorías
+    categoriesView.addEventListener('click', (e) => {
+        const card = e.target.closest('.category-card');
+        if (card) {
+            const category = card.getAttribute('data-category');
+            showCategory(category);
         }
     });
 
+    backToCatsBtn.addEventListener('click', () => {
+        productsView.style.display = 'none';
+        categoriesView.style.display = 'grid';
+        window.scrollTo(0, 0);
+    });
+
     // Delegación eventos en los productos (Selección de talla y botón añadir)
-    productsGrid.addEventListener('click', (e) => {
+    const productsGrid = document.getElementById('products-grid');
         // Seleccionar talla
         if (e.target.classList.contains('size-btn')) {
             const container = e.target.closest('.sizes-list');
@@ -166,9 +157,43 @@ function parseStock(stockStr, sizesStr) {
     return stockMap;
 }
 
+function renderCategories() {
+    const categories = [...new Set(allProducts.map(p => p.Categoria))];
+    const categoryImages = {
+        "Deportivo Mujer": "https://i.ibb.co/3k5Xy9n/placeholder-mujer1.jpg",
+        "Deportivo Hombre": "https://i.ibb.co/fCXq9x7/placeholder-hombre1.jpg",
+        "Accesorios Deportivos": "https://i.ibb.co/L5kL2C8/placeholder-reloj.jpg",
+        "Lentes": "https://i.ibb.co/L5kL2C8/placeholder-reloj.jpg",
+        "Relojes": "https://i.ibb.co/L5kL2C8/placeholder-reloj.jpg"
+    };
+
+    categoriesView.innerHTML = categories.map(cat => {
+        // Buscar un producto de esta categoría para usar su foto real si es posible
+        const sampleProduct = allProducts.find(p => p.Categoria === cat && p.Imagen_URL);
+        const img = sampleProduct ? sampleProduct.Imagen_URL : (categoryImages[cat] || "logo.jpg");
+
+        return `
+            <article class="category-card" data-category="${cat}">
+                <img src="${img}" alt="${cat}">
+                <h3>${cat}</h3>
+            </article>
+        `;
+    }).join('');
+}
+
+function showCategory(category) {
+    const filtered = allProducts.filter(p => p.Categoria === category);
+    currentCatNameEl.textContent = category;
+    renderProducts(filtered);
+    categoriesView.style.display = 'none';
+    productsView.style.display = 'block';
+    window.scrollTo(0, 0);
+}
+
 function renderProducts(products) {
+    const productsGrid = document.getElementById('products-grid');
     if (products.length === 0) {
-        productsGrid.innerHTML = '<p class="loading-spinner">No hay productos en esta categoría.</p>';
+        productsGrid.innerHTML = '<p class="loading-spinner">No hay productos en esta selección.</p>';
         return;
     }
 
@@ -314,7 +339,11 @@ function updateCartUI() {
     let total = 0;
     let count = 0;
 
-    cartItemsContainer.innerHTML = cart.map(item => {
+    cartItemsContainer.innerHTML = `
+        <div class="cart-instruction">
+            ✨ Escoge tus favoritos y finaliza por WhatsApp.
+        </div>
+    ` + cart.map(item => {
         const itemTotal = item.Precio * item.Cantidad;
         total += itemTotal;
         count += item.Cantidad;

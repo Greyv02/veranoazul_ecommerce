@@ -2,6 +2,8 @@ import telebot
 import gspread
 import requests
 import re
+import os
+import shutil
 
 # ==========================================
 # CONFIGURACIÓN (REEMPLAZA CON TUS DATOS)
@@ -11,6 +13,10 @@ IMGBB_API_KEY = "01abb5a1fa771a46f0bd54a091703fab"
 DOCUMENTO_ID = "118e0HzgtMsmvI1N3Z-RItFNHv2NYB_kOd2h_SafHQh8"
 # Las categorías corresponden a los nombres exactos de las pestañas
 CATEGORIAS = ["Deportivo Mujer", "Deportivo Hombre", "Accesorios Deportivos", "Lentes", "Relojes"]
+IMG_FOLDER = r"C:\Users\gre_v\.gemini\antigravity\scratch\veranoazul_ecommerce\Imagenes Pagina"
+
+if not os.path.exists(IMG_FOLDER):
+    os.makedirs(IMG_FOLDER)
 
 # ==========================================
 # INICIALIZACIÓN
@@ -129,6 +135,18 @@ def recibir_nuevo_articulo(message):
 
     # Generar código
     codigo = generar_nuevo_codigo()
+
+    # GUARDADO LOCAL DE IMAGEN
+    try:
+        local_path = os.path.join(IMG_FOLDER, f"{codigo}.jpg")
+        img_res = requests.get(file_url, stream=True)
+        if img_res.status_code == 200:
+            with open(local_path, 'wb') as f:
+                img_res.raw.decode_content = True
+                shutil.copyfileobj(img_res.raw, f)
+            print(f"✅ Imagen guardada localmente en: {local_path}")
+    except Exception as e:
+        print(f"⚠️ Error guardando imagen local: {e}")
 
     row_data = [
         codigo, nombre, categoria, costo, venta, oferta, stock_final_str, img_public_url, tallas_str
