@@ -69,6 +69,7 @@ function setupEventListeners() {
 
     // Delegación eventos en los productos (Selección de talla y botón añadir)
     const productsGrid = document.getElementById('products-grid');
+    productsGrid.addEventListener('click', (e) => {
         // Seleccionar talla
         if (e.target.classList.contains('size-btn')) {
             const container = e.target.closest('.sizes-list');
