@@ -27,6 +27,7 @@ const cartItemsContainer = document.getElementById('cart-items');
 const cartTotalEl = document.getElementById('cart-total-price');
 const cartCountEl = document.getElementById('cart-count');
 const checkoutBtn = document.getElementById('checkout-btn');
+const sizeFilterContainer = document.getElementById('size-filter-container');
 
 // ==========================================
 // INICIALIZACIÓN
@@ -83,6 +84,15 @@ function setupEventListeners() {
             e.target.classList.add('selected');
         }
 
+        // Selector de Cantidad en el card
+        if (e.target.closest('.qty-btn-card')) {
+            const btn = e.target.closest('.qty-btn-card');
+            const input = btn.parentElement.querySelector('input');
+            let val = parseInt(input.value);
+            if (btn.textContent === '+') input.value = val + 1;
+            else if (val > 1) input.value = val - 1;
+        }
+
         // Añadir al carrito
         if (e.target.closest('.add-to-cart-btn')) {
             const btn = e.target.closest('.add-to-cart-btn');
@@ -103,7 +113,14 @@ function setupEventListeners() {
                 selectedSize = selectedBtn.textContent;
             }
 
-            addToCart(product, selectedSize);
+                selectedSize = selectedBtn.textContent;
+            }
+
+            const qtyInput = card.querySelector('.qty-input-card');
+            const quantity = parseInt(qtyInput.value) || 1;
+
+            flyToCart(card.querySelector('.product-image'));
+            addToCart(product, selectedSize, quantity);
         }
     });
 
@@ -191,10 +208,54 @@ function renderCategories() {
 function showCategory(category) {
     const filtered = allProducts.filter(p => p.Categoria === category);
     currentCatNameEl.textContent = category;
+    
+    // Generar Filtros de Talla
+    renderSizeFilters(filtered);
+    
     renderProducts(filtered);
     categoriesView.style.display = 'none';
     productsView.style.display = 'block';
     window.scrollTo(0, 0);
+}
+
+function renderSizeFilters(products) {
+    const sizes = new Set();
+    products.forEach(p => {
+        p.Tallas.split(',').forEach(s => {
+            const trimmed = s.trim().toUpperCase();
+            if (trimmed && trimmed !== 'UNICA' && trimmed !== 'ÚNICA') sizes.add(trimmed);
+        });
+    });
+
+    if (sizes.size === 0) {
+        sizeFilterContainer.innerHTML = '';
+        return;
+    }
+
+    const sizeArray = Array.from(sizes).sort();
+    sizeFilterContainer.innerHTML = `
+        <div class="filter-chip active" data-size="TODOS">Todas</div>
+        ${sizeArray.map(s => `<div class="filter-chip" data-size="${s}">${s}</div>`).join('')}
+    `;
+
+    // Eventos de filtro
+    sizeFilterContainer.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            sizeFilterContainer.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            const selectedSize = chip.getAttribute('data-size');
+            
+            const category = currentCatNameEl.textContent;
+            const categoryProducts = allProducts.filter(p => p.Categoria === category);
+            
+            if (selectedSize === 'TODOS') {
+                renderProducts(categoryProducts);
+            } else {
+                const filtered = categoryProducts.filter(p => p.Tallas.toUpperCase().includes(selectedSize));
+                renderProducts(filtered);
+            }
+        });
+    });
 }
 
 function renderProducts(products) {
@@ -247,12 +308,17 @@ function renderProducts(products) {
                 <div class="product-info">
                     <h3 class="product-title">${product.Nombre}</h3>
                     <div class="product-price">
-                        ${isOnSale ? `<span style="text-decoration:line-through; font-size:0.85rem; color:#64748B">$${pVenta.toFixed(2)}</span> ` : ''}
+                        ${isOnSale ? `<span style="text-decoration:line-through; font-size:0.8rem; color:#64748B">$${pVenta.toFixed(2)}</span> ` : ''}
                         $${currentPrice.toFixed(2)}
                     </div>
                     ${sizesSection}
+                    <div class="qty-input-group">
+                        <button class="qty-btn-card">-</button>
+                        <input type="number" value="1" min="1" class="qty-input-card" readonly>
+                        <button class="qty-btn-card">+</button>
+                    </div>
                     <button class="add-to-cart-btn" data-id="${product.Codigo}" ${isOutOfStock ? 'disabled' : ''}>
-                        <i class="fa-solid fa-cart-shopping"></i> ${isOutOfStock ? 'Agotado' : 'Añadir al Carrito'}
+                        <i class="fa-solid fa-cart-shopping"></i> ${isOutOfStock ? 'Agotado' : 'Añadir'}
                     </button>
                 </div>
             </article>
@@ -263,7 +329,7 @@ function renderProducts(products) {
 // ==========================================
 // LÓGICA DEL CARRITO
 // ==========================================
-function addToCart(product, size) {
+function addToCart(product, size, quantity = 1) {
     // Validar stock antes de añadir
     const stockMap = parseStock(product.Stock, product.Tallas);
     const available = stockMap[size] || 0;
@@ -282,7 +348,7 @@ function addToCart(product, size) {
     const existingIndex = cart.findIndex(item => item.Codigo === product.Codigo && item.Talla === size);
     
     if (existingIndex >= 0) {
-        cart[existingIndex].Cantidad += 1;
+        cart[existingIndex].Cantidad += quantity;
     } else {
         cart.push({
             Codigo: product.Codigo,
@@ -290,15 +356,51 @@ function addToCart(product, size) {
             Imagen: product.Imagen_URL,
             Precio: price,
             Talla: size,
-            Cantidad: 1
+            Cantidad: quantity
         });
     }
 
     saveCart();
     updateCartUI();
     
-    // Feedback visual opcional
-    toggleCart(); 
+    // Abrir carrito después de un segundo para que se vea la animación
+    setTimeout(() => {
+        if (!cartSidebar.classList.contains('active')) toggleCart();
+    }, 800);
+}
+
+function flyToCart(imgElement) {
+    const cartIcon = cartBtn;
+    const flyingImg = imgElement.cloneNode();
+    
+    const rect = imgElement.getBoundingClientRect();
+    const cartRect = cartIcon.getBoundingClientRect();
+    
+    Object.assign(flyingImg.style, {
+        position: 'fixed',
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        zIndex: '10000',
+        borderRadius: '50%',
+        transition: 'all 0.8s cubic-bezier(0.19, 1, 0.22, 1)',
+        pointerEvents: 'none'
+    });
+    
+    document.body.appendChild(flyingImg);
+    
+    setTimeout(() => {
+        Object.assign(flyingImg.style, {
+            left: `${cartRect.left + cartRect.width / 2}px`,
+            top: `${cartRect.top + cartRect.height / 2}px`,
+            width: '20px',
+            height: '20px',
+            opacity: '0'
+        });
+    }, 50);
+    
+    setTimeout(() => flyingImg.remove(), 800);
 }
 
 function updateItemQuantity(code, size, change) {
