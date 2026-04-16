@@ -104,15 +104,14 @@ function setupEventListeners() {
             const sizesContainer = card.querySelector('.sizes-list');
             let selectedSize = 'Única';
 
-            if (sizesContainer && product.Tallas.toLowerCase() !== 'unica' && product.Tallas.toLowerCase() !== 'única') {
+            const requiresSize = sizesContainer && product.Tallas.toLowerCase() !== 'unica' && product.Tallas.toLowerCase() !== 'única' && product.Tallas.trim() !== '';
+
+            if (requiresSize) {
                 const selectedBtn = sizesContainer.querySelector('.size-btn.selected');
                 if (!selectedBtn) {
                     alert('Por favor selecciona una talla primero.');
                     return;
                 }
-                selectedSize = selectedBtn.textContent;
-            }
-
                 selectedSize = selectedBtn.textContent;
             }
 
