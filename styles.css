@@ -10,6 +10,16 @@
     --radius: 12px;
     --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Variables faltantes */
+    --bg-main: #F8FAFC;
+    --text-main: #0F172A;
+    --primary-color: #1D4ED8;
+    --accent-color: #E11D48;
+    --bg-card: #FFFFFF;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --radius-full: 9999px;
+    --border-color: #E2E8F0;
 }
 
 * {
@@ -28,11 +38,12 @@ body {
 
 /* Header */
 .header {
-    background-color: var(--bg-card);
+    background-color: var(--white); /* Fondo sólido */
     position: sticky;
     top: 0;
-    z-index: 100;
-    box-shadow: var(--shadow-sm);
+    z-index: 1000; /* Asegurar que esté por encima de todo */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    width: 100%;
 }
 
 .header-container {
@@ -218,11 +229,11 @@ main {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    background: var(--white);
+    background: var(--white); /* Fondo sólido */
     position: sticky;
-    top: 60px;
-    z-index: 90;
-    border-bottom: 1px solid var(--border);
+    top: 60px; /* Debajo del primer header */
+    z-index: 999;
+    border-bottom: 2px solid var(--bg);
 }
 
 .header-cat-info {
@@ -355,11 +366,59 @@ main {
 }
 
 /* CARRITO SIDEBAR FIX */
+.cart-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 2000;
+    display: none;
+    backdrop-filter: blur(2px);
+}
+
+.cart-overlay.active {
+    display: block;
+}
+
 .cart-sidebar {
-    position: fixed !important;
+    position: fixed;
     top: 0;
     right: -100%;
-    z-index: 9999 !important;
+    width: 85%; /* Móvil */
+    max-width: 400px;
+    height: 100%;
+    background: var(--white);
+    z-index: 3000;
+    box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+}
+
+.cart-sidebar.active {
+    right: 0;
+}
+
+.cart-header {
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+
+.cart-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border);
+    background: #f8fafc;
+}
+
+.cart-items {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px;
 }
 
 @media (min-width: 1024px) {

@@ -25,22 +25,25 @@ function doGet(e) {
       const sheet = ss.getSheetByName(sheetName);
       if (sheet) {
         const data = sheet.getDataRange().getValues();
-        if (data.length > 1) {
+        // Solo procesar si hay más de una fila (cabecera + datos)
+        if (data && data.length > 1) {
           const headers = data[0];
           const rows = data.slice(1);
           
           const sheetProducts = rows.map((row) => {
             let obj = {};
             row.forEach((cell, index) => {
+              // Limpiar Nombres de columnas para evitar espacios extraños
               let key = String(headers[index]).trim().replace(/\s+/g, '_');
-              obj[key] = cell;
+              if (key) obj[key] = cell;
             });
-            // Asegurar que la categoría coincida con el nombre de la pestaña si no está en la columna
+            // Asegurar que la categoría coincida con el nombre de la pestaña
             if (!obj.Categoria || obj.Categoria === "") {
               obj.Categoria = sheetName;
             }
             return obj;
-          });
+          }).filter(product => product.Codigo); // Filtrar filas vacías sin código
+          
           allProducts = allProducts.concat(sheetProducts);
         }
       }

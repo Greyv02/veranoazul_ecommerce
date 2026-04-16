@@ -59,7 +59,7 @@ async function initApp() {
 }
 
 function setupEventListeners() {
-    // Navegación de categorías
+    // Navegación de categorías (Cards)
     categoriesView.addEventListener('click', (e) => {
         const card = e.target.closest('.category-card');
         if (card) {
@@ -68,9 +68,28 @@ function setupEventListeners() {
         }
     });
 
+    // Navegación de categorías (Header List)
+    const headerLinks = document.getElementById('categories-list');
+    if (headerLinks) {
+        headerLinks.addEventListener('click', (e) => {
+            const li = e.target.closest('li');
+            if (li) {
+                const category = li.getAttribute('data-category');
+                if (category === 'Todos') {
+                    productsView.style.display = 'none';
+                    categoriesView.style.display = 'grid';
+                    updateHeaderNav('Todos');
+                } else {
+                    showCategory(category);
+                }
+            }
+        });
+    }
+
     backToCatsBtn.addEventListener('click', () => {
         productsView.style.display = 'none';
         categoriesView.style.display = 'grid';
+        updateHeaderNav('Todos');
         window.scrollTo(0, 0);
     });
 
@@ -208,6 +227,9 @@ function showCategory(category) {
     const filtered = allProducts.filter(p => p.Categoria === category);
     currentCatNameEl.textContent = category;
     
+    // Actualizar nav superior
+    updateHeaderNav(category);
+    
     // Generar Filtros de Talla
     renderSizeFilters(filtered);
     
@@ -215,6 +237,19 @@ function showCategory(category) {
     categoriesView.style.display = 'none';
     productsView.style.display = 'block';
     window.scrollTo(0, 0);
+}
+
+function updateHeaderNav(activeCategory) {
+    const listItems = document.querySelectorAll('#categories-list li');
+    listItems.forEach(li => {
+        if (li.getAttribute('data-category') === activeCategory) {
+            li.classList.add('active');
+            // Hacer scroll horizontal automático si es necesario
+            li.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        } else {
+            li.classList.remove('active');
+        }
+    });
 }
 
 function renderSizeFilters(products) {
