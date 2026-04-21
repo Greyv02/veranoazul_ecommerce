@@ -11,6 +11,53 @@ let allProducts = [];
 let cart = JSON.parse(localStorage.getItem('veranoazul_cart')) || [];
 
 // ==========================================
+// TRACKING (META PIXEL)
+// ==========================================
+function getExternalId() {
+    let id = localStorage.getItem('fb_external_id');
+    if (!id) {
+        id = 'user_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        localStorage.setItem('fb_external_id', id);
+    }
+    return id;
+}
+
+function trackPixel(eventName, params = {}) {
+    if (typeof fbq === 'function') {
+        fbq('track', eventName, params);
+    }
+}
+
+function initTracking() {
+    const externalId = getExternalId();
+    if (typeof fbq === 'function') {
+        fbq('init', '1166748008643096', { external_id: externalId });
+        fbq('track', 'PageView');
+    }
+
+    // Nivel 2: ViewContent (Interacción por tiempo y scroll)
+    let interacted = false;
+    const triggerInteraction = () => {
+        if (!interacted) {
+            interacted = true;
+            trackPixel('ViewContent', { content_name: 'Main Page', content_category: 'E-commerce' });
+        }
+    };
+
+    // 15 Segundos de permanencia
+    setTimeout(triggerInteraction, 15000);
+
+    // Scroll 25% de la página
+    window.addEventListener('scroll', () => {
+        const scrolled = window.scrollY;
+        const height = document.documentElement.scrollHeight - window.innerHeight;
+        if (scrolled > height * 0.25) {
+            triggerInteraction();
+        }
+    });
+}
+
+// ==========================================
 // ELEMENTOS DEL DOM
 // ==========================================
 const categoriesView = document.getElementById('categories-view');
@@ -33,6 +80,7 @@ const sizeFilterContainer = document.getElementById('size-filter-container');
 // INICIALIZACIÓN
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
+    initTracking();
     initApp();
     setupEventListeners();
     updateCartUI();
@@ -587,6 +635,24 @@ function processCheckout() {
 
     text += `*TOTAL A PAGAR: $${total.toFixed(2)}*\n\n`;
     text += `Quedo atento(a) para los métodos de pago. ¡Gracias!`;
+
+    // Nivel 3: Purchase Event (Detalle de productos para Facebook)
+    const purchaseData = {
+        value: total,
+        currency: 'USD',
+        content_type: 'product',
+        content_ids: cart.map(item => item.Codigo),
+        contents: cart.map(item => {
+            const product = allProducts.find(p => p.Codigo === item.Codigo);
+            return {
+                id: item.Codigo,
+                quantity: item.Cantidad,
+                item_price: item.Precio,
+                on_sale: product ? product.Tiene_Oferta : false
+            };
+        })
+    };
+    trackPixel('Purchase', purchaseData);
 
     const encodedText = encodeURIComponent(text);
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`;
