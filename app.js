@@ -42,11 +42,32 @@ async function initApp() {
     try {
         if (SCRIPT_URL && SCRIPT_URL !== 'URL_DE_TU_WEB_APP_AQUI') {
             const response = await fetch(SCRIPT_URL);
-            allProducts = await response.json();
+            const rawData = await response.json();
+            
+            // Procesar y normalizar datos
+            allProducts = rawData.map(p => {
+                // Normalizar categoría (Title Case) para evitar duplicados por minúsculas/mayúsculas
+                const rawCat = (p.Categoria || "Otros").trim().toLowerCase();
+                const normalizedCat = rawCat.replace(/\b\w/g, c => c.toUpperCase());
+                
+                // Determinar precio real (Oferta > Venta)
+                const precioVenta = parseFloat(p.Precio_Venta) || 0;
+                const precioOferta = p.Precio_Oferta ? parseFloat(p.Precio_Oferta) : null;
+                const finalPrice = (precioOferta !== null && precioOferta > 0) ? precioOferta : precioVenta;
+
+                return {
+                    ...p,
+                    Categoria: normalizedCat,
+                    Precio_Final: finalPrice,
+                    Precio_Original: precioVenta,
+                    Tiene_Oferta: (precioOferta !== null && precioOferta > 0)
+                };
+            });
         } else {
+            // Datos de prueba (Fallback)
             allProducts = [
-                { Codigo: 'VA001', Nombre: 'Leggins Deportivos Seamless', Categoria: 'Deportivo Mujer', Precio_Venta: 15.00, Precio_Oferta: 12.00, Tallas: 'S,M,L', Stock: 'S=5|M=0|L=2', Imagen_URL: 'https://i.ibb.co/3k5Xy9n/placeholder-mujer1.jpg' },
-                { Codigo: 'VA101', Nombre: 'Short Running Elite', Categoria: 'Deportivo Hombre', Precio_Venta: 10.00, Precio_Oferta: '', Tallas: 'M,L,XL', Stock: 'M=5|L=0', Imagen_URL: 'https://i.ibb.co/fCXq9x7/placeholder-hombre1.jpg' }
+                { Codigo: 'VA001', Nombre: 'Leggins Deportivos', Categoria: 'Deportivo Mujer', Precio_Venta: 15, Precio_Oferta: 12, Tallas: 'S,M,L', Stock: 'S=5|M=0|L=2', Imagen_URL: 'https://i.ibb.co/3k5Xy9n/placeholder-mujer1.jpg', Precio_Final: 12, Tiene_Oferta: true },
+                { Codigo: 'VA101', Nombre: 'Short Running', Categoria: 'Deportivo Hombre', Precio_Venta: 10, Precio_Oferta: '', Tallas: 'M,L,XL', Stock: 'M=5|L=0', Imagen_URL: 'https://i.ibb.co/fCXq9x7/placeholder-hombre1.jpg', Precio_Final: 10, Tiene_Oferta: false }
             ];
         }
 
@@ -201,6 +222,17 @@ function parseStock(stockStr, sizesStr) {
 
 function renderCategories() {
     const categories = [...new Set(allProducts.map(p => p.Categoria))];
+    
+    // 1. Renderizar Nav Superior (Header)
+    const headerLinks = document.getElementById('categories-list');
+    if (headerLinks) {
+        headerLinks.innerHTML = `
+            <li class="active" data-category="Todos">Todos</li>
+            ${categories.map(cat => `<li data-category="${cat}">${cat}</li>`).join('')}
+        `;
+    }
+
+    // 2. Renderizar Grid de Categorías (Vista Principal)
     const categoryImages = {
         "Deportivo Mujer": "https://i.ibb.co/3k5Xy9n/placeholder-mujer1.jpg",
         "Deportivo Hombre": "https://i.ibb.co/fCXq9x7/placeholder-hombre1.jpg",
@@ -212,7 +244,7 @@ function renderCategories() {
     categoriesView.innerHTML = categories.map(cat => {
         // Buscar un producto de esta categoría para usar su foto real si es posible
         const sampleProduct = allProducts.find(p => p.Categoria === cat && p.Imagen_URL);
-        const img = sampleProduct ? sampleProduct.Imagen_URL : (categoryImages[cat] || "logo.jpg");
+        const img = (sampleProduct && sampleProduct.Imagen_URL) ? sampleProduct.Imagen_URL : (categoryImages[cat] || "logo.jpg");
 
         return `
             <article class="category-card" data-category="${cat}">
@@ -301,11 +333,10 @@ function renderProducts(products) {
     }
 
     productsGrid.innerHTML = products.map(product => {
-        // Calcular precio a mostrar
-        const pVenta = parseFloat(product.Precio_Venta);
-        const pOferta = parseFloat(product.Precio_Oferta);
-        const isOnSale = pOferta > 0 && pOferta < pVenta;
-        const currentPrice = isOnSale ? pOferta : pVenta;
+        // Usar valores pre-calculados en initApp
+        const currentPrice = product.Precio_Final;
+        const pVenta = product.Precio_Original;
+        const isOnSale = product.Tiene_Oferta;
         
         // Procesar stock por talla
         const stockMap = parseStock(product.Stock, product.Tallas);
@@ -319,7 +350,7 @@ function renderProducts(products) {
             const qty = stockMap[talla] || 0;
             const disabled = qty <= 0;
             
-            return `<button class="size-btn ${disabled ? 'disabled' : ''}" ${disabled ? 'disabled' : ''}>${talla}</button>`;
+            return `<button class="size-btn ${disabled ? 'selected' === '' : ''} ${disabled ? 'disabled' : ''}" ${disabled ? 'disabled' : ''}>${talla}</button>`;
         }).join('');
         
         const sizesSection = tallasHTML ? `
@@ -374,10 +405,8 @@ function addToCart(product, size, quantity = 1) {
         return;
     }
 
-    // Determinar precio final
-    const pOferta = parseFloat(product.Precio_Oferta);
-    const pVenta = parseFloat(product.Precio_Venta);
-    const price = (pOferta > 0 && pOferta < pVenta) ? pOferta : pVenta;
+    // Usar el precio final ya calculado
+    const price = product.Precio_Final;
 
     // Buscar si ya existe en el carrito
     const existingIndex = cart.findIndex(item => item.Codigo === product.Codigo && item.Talla === size);
