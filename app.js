@@ -22,9 +22,9 @@ function getExternalId() {
     return id;
 }
 
-function trackPixel(eventName, params = {}) {
+function trackPixel(eventName, params = {}, options = {}) {
     if (typeof fbq === 'function') {
-        fbq('track', eventName, params);
+        fbq('track', eventName, params, options);
     }
 }
 
@@ -35,31 +35,7 @@ function initTracking() {
         fbq('track', 'PageView');
     }
 
-    // Nivel 2: ViewContent (Interacción por tiempo y scroll)
-    let interacted = false;
-    const triggerInteraction = () => {
-        if (!interacted) {
-            interacted = true;
-            trackPixel('ViewContent', { 
-                content_name: 'Catálogo Verano Azul', 
-                content_category: 'Ropa Deportiva',
-                currency: 'USD',
-                value: 0 
-            });
-        }
-    };
-
-    // 15 Segundos de permanencia
-    setTimeout(triggerInteraction, 15000);
-
-    // Scroll 25% de la página
-    window.addEventListener('scroll', () => {
-        const scrolled = window.scrollY;
-        const height = document.documentElement.scrollHeight - window.innerHeight;
-        if (scrolled > height * 0.25) {
-            triggerInteraction();
-        }
-    });
+    // El evento ViewContent ahora se dispara dinámicamente al ver categorías/productos
 }
 
 // ==========================================
@@ -324,18 +300,22 @@ function renderCategories() {
 function showCategory(category) {
     const targetCat = category.trim();
     const filtered = allProducts.filter(p => (p.Categoria || "").trim() === targetCat);
+    
     currentCatNameEl.textContent = targetCat;
-    
-    // Actualizar nav superior
-    updateHeaderNav(category);
-    
-    // Generar Filtros de Talla
-    renderSizeFilters(filtered);
-    
-    renderProducts(filtered);
     categoriesView.style.display = 'none';
     productsView.style.display = 'block';
+    
+    renderProducts(filtered);
+    updateHeaderNav(targetCat);
+    renderSizeFilters(filtered);
     window.scrollTo(0, 0);
+
+    // Nivel 2: ViewContent (Cuando el usuario ve una categoría/lista de productos)
+    const representativePrice = filtered.length > 0 ? filtered[0].Precio_Final : 0;
+    trackPixel('ViewContent', 
+        { value: representativePrice, currency: 'USD', content_name: targetCat },
+        { eventID: 'vc_' + Date.now() }
+    );
 }
 
 function updateHeaderNav(activeCategory) {
@@ -624,12 +604,10 @@ function toggleCart() {
     // Nivel 2.5: InitiateCheckout (Cuando el usuario abre la bolsa)
     if (cartSidebar.classList.contains('active') && cart.length > 0) {
         let total = cart.reduce((sum, item) => sum + (item.Precio * item.Cantidad), 0);
-        trackPixel('InitiateCheckout', {
-            value: total,
-            currency: 'USD',
-            content_ids: cart.map(item => item.Codigo),
-            contents: cart.map(item => ({ id: item.Codigo, quantity: item.Cantidad }))
-        });
+        trackPixel('InitiateCheckout', 
+            { value: total, currency: 'USD' },
+            { eventID: 'ic_' + Date.now() }
+        );
     }
 }
 
@@ -652,23 +630,11 @@ function processCheckout() {
     text += `*TOTAL A PAGAR: $${total.toFixed(2)}*\n\n`;
     text += `Quedo atento(a) para los métodos de pago. ¡Gracias!`;
 
-    // Nivel 3: Purchase Event (Detalle de productos para Facebook)
-    const purchaseData = {
-        value: total,
-        currency: 'USD',
-        content_type: 'product',
-        content_ids: cart.map(item => item.Codigo),
-        contents: cart.map(item => {
-            const product = allProducts.find(p => p.Codigo === item.Codigo);
-            return {
-                id: item.Codigo,
-                quantity: item.Cantidad,
-                item_price: item.Precio,
-                on_sale: product ? product.Tiene_Oferta : false
-            };
-        })
-    };
-    trackPixel('Purchase', purchaseData);
+    // Nivel 3: Purchase Event (Solo en la acción de finalizar)
+    trackPixel('Purchase', 
+        { value: total, currency: 'USD' },
+        { eventID: 'purchase_' + Date.now() }
+    );
 
     const encodedText = encodeURIComponent(text);
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`;
